@@ -1,86 +1,49 @@
-# --- 0) Paramètres à adapter ---
-$RepoName   = "nico-rag-api"
-$GithubUser = "VOTRE_GITHUB_LOGIN"       # ex: nicolast
-$UseGhCli   = $true                      # passez à $false si vous n'avez pas 'gh'
+# === Paramètres ===
+$RepoUrl  = "https://github.com/ngobet1975/NICO-RAG-API.git"
+$Branch   = "main"
+$WorkDir  = "C:\ChatBOTIA\chat2"
 
-# --- 1) Vérifs de base ---
-Write-Host "Vérification des fichiers..." -ForegroundColor Cyan
-$required = @("server.js","package.json","package-lock.json")
-$missing  = $required | Where-Object { -not (Test-Path $_) }
-if ($missing) { throw "Fichiers manquants: $($missing -join ', ')" }
+# === Go ===
+Set-Location $WorkDir
 
-# Valide le JSON du package.json
-try {
-  Get-Content package.json -Raw | ConvertFrom-Json | Out-Null
-  Write-Host "package.json: OK" -ForegroundColor Green
-} catch {
-  throw "package.json invalide: $($_.Exception.Message)"
-}
+# Identité (au cas où)
+git config user.name  "ngobet1975" | Out-Null
+git config user.email "nicolas@itsynchronic.com" | Out-Null
 
-# --- 2) .gitignore propre ---
-$gitignore = @'
-# Node
+# Init / Remote propre
+git init | Out-Null
+git remote remove origin 2>$null
+git remote add origin $RepoUrl
+
+# .gitignore minimal (créé s’il n’existe pas)
+if (!(Test-Path .gitignore)) {
+@"
 node_modules/
 npm-debug.log*
-yarn.lock
-pnpm-lock.yaml
-
-# Builds & archives
-app.zip
-*.zip
-dist/
-build/
-tmp/
-temp/
-
-# Local env / secrets
+*.log
 .env
-.local/
-*.user
-.venv/
-
-# Azure/Kudu
-oryx-manifest.toml
-oryx*
-'@
-Set-Content -Path ".gitignore" -Value $gitignore -Encoding UTF8
-
-# --- 3) README minimal ---
-if (-not (Test-Path README.md)) {
-  @"
-# $RepoName
-
-API Express pour Azure App Service.
-- Endpoint chat vers **Azure OpenAI** (variables: `AOAI_ENDPOINT`, `AOAI_KEY`, `AOAI_DEPLOYMENT`)
-- OBO Graph via **MSAL** (variables: `TENANT_ID`, `API_CLIENT_ID`, `API_CLIENT_SECRET`)
-- Démarrage local: `npm install` puis `npm start`
-
-"@ | Set-Content README.md -Encoding UTF8
+app.zip
+publishProfile*.xml
+.DS_Store
+Thumbs.db
+"@ | Set-Content .gitignore -Encoding UTF8
 }
 
-# --- 4) Init Git ---
-if (-not (Test-Path ".git")) {
-  git init
-  git checkout -b main
-  git config user.name  "$env:USERNAME"
-  git config user.email "you@example.com"   # mettez votre email Git
-}
+# S’assurer d’être sur la bonne branche et committer tout
+git checkout -B $Branch | Out-Null
+git add -A
+git commit -m "chore: force update backend (server.js, package.json, lock, .gitignore)" --allow-empty | Out-Null
 
-git add .
-git commit -m "chore: initial commit (api + package files)"
+# Tenter un fetch pour activer --force-with-lease ; sinon fallback --force
+$leaseOk = $true
+try { git fetch origin $Branch --quiet } catch { $leaseOk = $false }
 
-# --- 5) Création du repo GitHub + push ---
-if ($UseGhCli -and (Get-Command gh -ErrorAction SilentlyContinue)) {
-  Write-Host "Création du repo GitHub avec gh..." -ForegroundColor Cyan
-  # Authentifiez-vous si besoin: gh auth login
-  gh repo create "$GithubUser/$RepoName" --public --source "." --remote "origin" --push
+if ($leaseOk) {
+  Write-Host "PUSH en --force-with-lease vers $RepoUrl ($Branch)..." -ForegroundColor Yellow
+  git push -u origin $Branch --force-with-lease
 } else {
-  Write-Host "gh non disponible : création manuelle du remote..." -ForegroundColor Yellow
-  $remote = "https://github.com/$GithubUser/$RepoName.git"
-  if (-not (git remote 2>$null | Select-String -SimpleMatch "origin")) {
-    git remote add origin $remote
-  }
-  git push -f origin main
+  Write-Host "Ref distante inconnue, fallback en --force (écrasement)..." -ForegroundColor Red
+  git push -u origin $Branch --force
 }
 
-Write-Host "✅ Dépôt poussé sur GitHub." -ForegroundColor Green
+Write-Host "`n✅ Push terminé."
