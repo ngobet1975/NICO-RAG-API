@@ -1,3 +1,23 @@
+﻿# Node
 node_modules/
-npm-debug.log
+npm-debug.log*
+yarn.lock
+pnpm-lock.yaml
+
+# Builds & archives
+app.zip
 *.zip
+dist/
+build/
+tmp/
+temp/
+
+# Local env / secrets
+.env
+.local/
+*.user
+.venv/
+
+# Azure/Kudu
+oryx-manifest.toml
+oryx*
