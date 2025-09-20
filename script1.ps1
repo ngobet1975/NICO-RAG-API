@@ -80,7 +80,7 @@ if ($UseGhCli -and (Get-Command gh -ErrorAction SilentlyContinue)) {
   if (-not (git remote 2>$null | Select-String -SimpleMatch "origin")) {
     git remote add origin $remote
   }
-  git push -u origin main
+  git push -f origin main
 }
 
 Write-Host "✅ Dépôt poussé sur GitHub." -ForegroundColor Green
